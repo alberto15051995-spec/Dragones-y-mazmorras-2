@@ -11,41 +11,6 @@ const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// ── DM PROXY (Google Gemini) ───────────────────
-app.post('/api/dm', async (req, res) => {
-  const { system, messages } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY no configurada en Railway Variables.' });
-  try {
-    const fn = globalThis.fetch;
-    // Convert messages to Gemini format
-    const contents = messages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
-    }));
-    const response = await fn(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: system }] },
-          contents,
-          generationConfig: { maxOutputTokens: 1000, temperature: 0.9 }
-        })
-      }
-    );
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'El DM medita en silencio...';
-    // Return in Anthropic-compatible format
-    res.json({ content: [{ text }] });
-  } catch(e) {
-    console.error('Error DM proxy:', e);
-    res.status(500).json({ error: 'Error al contactar con el DM IA: ' + e.message });
-  }
-});
-
 // ── SAVES ──────────────────────────────────────
 const SAVES_DIR = path.join(__dirname, 'saves');
 if (!fs.existsSync(SAVES_DIR)) fs.mkdirSync(SAVES_DIR, { recursive: true });
